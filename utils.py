@@ -63,7 +63,7 @@ def get_text_file_contents(path):
     return data
 
 
-def sharpen_image(image):
+def sharpen_image(image, debug=False):
     grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     image_median_blurred = cv.medianBlur(grayed_image, 5)
     image_gaussian_blurred = cv.GaussianBlur(grayed_image, (0, 0), 7)
@@ -74,18 +74,19 @@ def sharpen_image(image):
     kernel = np.ones((6, 6), np.uint8)
     thresh = cv.erode(thresh, kernel)
 
-    return thresh
-
-
-def preprocess_image(image, parameters: Parameters, debug=False):
-    thresh = sharpen_image(image)
-
     if debug:
         show_image("default", grayed_image)
         show_image("median", image_median_blurred)
         show_image("gaussian", image_gaussian_blurred)
         show_image("sharpened", image_sharpened)
         show_image("thresh", thresh)
+
+    return thresh
+
+
+def preprocess_image(image, parameters: Parameters, debug=False):
+    grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    thresh = sharpen_image(image, debug)
 
     edges = cv.Canny(thresh, 150, 400)
     contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
