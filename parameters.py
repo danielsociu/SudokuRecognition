@@ -9,6 +9,7 @@ class Parameters:
         self.train_path = train_path
         self.image_type = 'jpg'
         self.crop_width = 1000
+        self.lee_speed = 10
         self.percentage = 20
         self.crop_height = 1000
         self.answer_name = "_gt"

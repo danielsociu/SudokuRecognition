@@ -162,7 +162,7 @@ def border_gray_image(image, percentage, color):
     return image
 
 
-def process_zones(image, horizontal_lines, vertical_lines, percentage, debug=False):
+def zones_image(image, horizontal_lines, vertical_lines, percentage, debug=False):
     grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     grayed_image = border_gray_image(grayed_image, 1, 50)
     # first preprocessing
@@ -176,6 +176,52 @@ def process_zones(image, horizontal_lines, vertical_lines, percentage, debug=Fal
     kernel = np.ones((5, 5), np.uint8)
     thresh = cv.erode(thresh, kernel)
 
+    # for i in range(len(horizontal_lines) - 1):
+    #     for j in range(len(vertical_lines) - 1):
+    #         y_min = vertical_lines[j][0][0]
+    #         y_max = vertical_lines[j + 1][0][0]
+    #         x_min = horizontal_lines[i][0][0]
+    #         x_max = horizontal_lines[i + 1][0][0]
+    #         height = abs(y_max - y_min)
+    #         width = abs(x_max - x_min)
+    #         difference_height = height * percentage // 100
+    #         difference_width = width * percentage // 100
+    #         y_min += difference_height
+    #         y_max -= difference_height
+    #         x_min += difference_width
+    #         x_max -= difference_width
+    #         thresh[x_min: x_max, y_min: y_max] = 255
+
+    if debug:
+        #image_sharpened = cv.addWeighted(thresh, 2.0, image_gaussian_blurred, -1.0, 0)
+        show_image("median", image_median_blurred)
+        show_image("gaussian", image_gaussian_blurred)
+        show_image("sharpened", image_sharpened)
+        show_image("re-median", re_median_image)
+        show_image("thresh", thresh)
+    return np.array(thresh)
+
+
+def fill_zone(image, zone_map, x, y, value):
+    height, width = zone_map.shape
+    dx = [1, -1, 0, 0]
+    dy = [0, 0, -1, 1]
+    zone_map[x][y] = value
+    que = [(x, y)]
+    while len(que) > 0:
+        cur_x, cur_y = que.pop(0)
+        for i in range(len(dx)):
+            new_x = cur_x + dx[i]
+            new_y = cur_y + dy[i]
+            if 0 <= new_x < height and 0 <= new_y < width and image[new_x][new_y] == 255 and zone_map[new_x][new_y] == 0:
+                zone_map[new_x][new_y] = value
+                que.append((new_x, new_y))
+    return zone_map
+
+
+def get_zones(zonal_image, vertical_lines, horizontal_lines, percentage):
+    current_zone = 1
+    zonal_map = np.zeros(zonal_image.shape, np.uint8)
     for i in range(len(horizontal_lines) - 1):
         for j in range(len(vertical_lines) - 1):
             y_min = vertical_lines[j][0][0]
@@ -190,17 +236,48 @@ def process_zones(image, horizontal_lines, vertical_lines, percentage, debug=Fal
             y_max -= difference_height
             x_min += difference_width
             x_max -= difference_width
-            thresh[x_min: x_max, y_min: y_max] = 255
+            # counter = 0
+            for x in range(x_min, x_max):
+                # if counter > 150:
+                #     continue
+                for y in range(y_min, y_max):
+                    if zonal_image[x][y] == 0:
+                        zonal_map[x][y] = -1
+                    # if zonal_map[x][y] != 0:
+                    #     counter += 1
+                    #     continue
+                    elif zonal_image[x][y] == 255 and zonal_map[x][y] == 0:
+                        zonal_map = fill_zone(zonal_image, zonal_map, x, y, current_zone)
+                        current_zone += 1
+    return zonal_map
 
-    show_image("thresh", thresh)
-    if debug:
-        #image_sharpened = cv.addWeighted(thresh, 2.0, image_gaussian_blurred, -1.0, 0)
-        show_image("median", image_median_blurred)
-        show_image("gaussian", image_gaussian_blurred)
-        show_image("sharpened", image_sharpened)
-        show_image("re-median", re_median_image)
-        show_image("thresh", thresh)
-    return thresh
+
+def get_frequencies(matrix):
+    freq = {}
+    for line in matrix:
+        for elem in line:
+            if elem != 255 and elem != 0:
+                freq[elem] = freq.get(elem, 0) + 1
+    return freq
+
+
+def decide_zone(zone_map, x, y, vertical_lines, horizontal_lines, percentage):
+    y_min = vertical_lines[y][0][0]
+    y_max = vertical_lines[y + 1][0][0]
+    x_min = horizontal_lines[x][0][0]
+    x_max = horizontal_lines[x + 1][0][0]
+    height = abs(y_max - y_min)
+    width = abs(x_max - x_min)
+    difference_height = height * percentage // 100
+    difference_width = width * percentage // 100
+    y_min += difference_height
+    y_max -= difference_height
+    x_min += difference_width
+    x_max -= difference_width
+    patch = zone_map[x_min: x_max, y_min: y_max].copy()
+    frequencies = get_frequencies(patch)
+    frequencies = sorted(frequencies.items(), key=lambda kv: kv[1])
+    return frequencies[0][0]
 
 
 def get_lines_columns(width, height):
@@ -212,7 +289,7 @@ def get_lines_columns(width, height):
     for i in range(0, height, height // 9):
         line = [(i, 0), (i, width - 1)]
         lines_horizontal.append(line)
-    return lines_vertical, lines_horizontal
+    return np.array(lines_vertical), np.array(lines_horizontal)
 
 
 def crop_resize_image(image, corners):
@@ -264,7 +341,7 @@ def decide_digit_existence(patch, debug=False):
     thresh = sharpen_digit(patch)
     mean_pixels = np.mean(thresh)
     if debug:
-        show_image("inital", patch)
+        show_image("initial", patch)
         show_image("digit image", thresh)
         print(np.mean(thresh))
     if mean_pixels > 230:
