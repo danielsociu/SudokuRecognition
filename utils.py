@@ -11,49 +11,34 @@ def show_image(title, image):
     cv.destroyAllWindows()
 
 
-def get_images(path, image_type):
-    files = os.listdir(path)
-    images = []
-    for file in files:
-        if file[-3:] == image_type:
-            img = cv.imread(os.path.join(path, file))
-            images.append(img)
-
-    return np.array(images)
-
-
-def get_files(path, file_type, bonus=False):
-    all_files = os.listdir(path)
-    files = []
-    for file in all_files:
-        if file[-3:] == file_type:
-            file_path = path + '/' + file
-            if bonus and "bonus" in file:
-                data = get_text_file_contents(file_path)
-                files.append(data)
-            elif not bonus and "bonus" not in file:
-                data = get_text_file_contents(file_path)
-                files.append(data)
-    return np.array(files)
-
-
 def get_data(path, image_type, answer_type, answer_name, bonus_answer_name):
     files = os.listdir(path)
     data = []
     for file in files:
         if file[-3:] == image_type:
-            number = file[:-3]
+            number = file[:-4]
             img = cv.imread(os.path.join(path, file))
-            answer_path = path + '/' + number + answer_name + answer_type
-            bonus_answer_path = path + '/' + number + bonus_answer_name + answer_type
+            answer_path = path + '/' + number + answer_name + '.' + answer_type
+            bonus_answer_path = path + '/' + number + bonus_answer_name + '.' + answer_type
             answer = get_text_file_contents(answer_path)
             bonus_answer = get_text_file_contents(bonus_answer_path)
             data.append({
                 "number": number,
                 "image": img,
-                "answer": answer,
-                "bonus_answer": bonus_answer
+                "true_answer": answer,
+                "ture_bonus_answer": bonus_answer
             })
+    return data
+
+
+def write_answers(data, answers_path, answer_type, answer_name):
+    final_path = os.path.join(os.getcwd(), answers_path)
+    os.makedirs(final_path)
+    for items in data:
+        file_name = items["number"] + answer_name +  '.' + answer_type
+        file_path = os.path.join(final_path, file_name)
+        with open(file_path, 'w')  as f:
+            f.write(items["answer"])
 
 
 def get_text_file_contents(path):

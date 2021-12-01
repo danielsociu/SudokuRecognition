@@ -14,4 +14,9 @@ class Parameters:
         self.factor_amplification = 1.05
         self.crop_width = 1000
         self.crop_height = 1000
+        self.answer_name = "_gt"
+        self.bonus_answer_name = "_bonus_gt"
+        self.answer_path = "predictions/clasic"
+        self.predicted_answer_name = "_predicted"
+        self.predicted_bonus_answer_name = "_bonus_predicted"
         self.answer_type = 'txt'
