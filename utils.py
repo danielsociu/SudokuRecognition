@@ -18,6 +18,7 @@ def get_data(path, image_type, answer_type, answer_name, bonus_answer_name):
         if file[-3:] == image_type:
             number = file[:-4]
             img = cv.imread(os.path.join(path, file))
+            img = cv.resize(img, (0, 0), fx=0.5, fy=0.5)
             answer_path = path + '/' + number + answer_name + '.' + answer_type
             bonus_answer_path = path + '/' + number + bonus_answer_name + '.' + answer_type
             answer = get_text_file_contents(answer_path)
@@ -33,7 +34,8 @@ def get_data(path, image_type, answer_type, answer_name, bonus_answer_name):
 
 def write_answers(data, answers_path, answer_type, answer_name):
     final_path = os.path.join(os.getcwd(), answers_path)
-    os.makedirs(final_path)
+    if not os.path.isdir(final_path):
+        os.makedirs(final_path)
     for items in data:
         file_name = items["number"] + answer_name +  '.' + answer_type
         file_path = os.path.join(final_path, file_name)
@@ -51,10 +53,10 @@ def get_text_file_contents(path):
 def sharpen_image(image, debug=False):
     grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     image_median_blurred = cv.medianBlur(grayed_image, 5)
-    image_gaussian_blurred = cv.GaussianBlur(grayed_image, (0, 0), 7)
+    image_gaussian_blurred = cv.GaussianBlur(grayed_image, (0, 0), 9)
     image_sharpened = cv.addWeighted(image_median_blurred, 1.2, image_gaussian_blurred, -0.8, 0)
     # _, thresh = cv.threshold(image_sharpened, 20, 255, cv.THRESH_BINARY)
-    thresh = cv.adaptiveThreshold(image_sharpened, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 10)
+    thresh = cv.adaptiveThreshold(image_sharpened, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 8)
 
     kernel = np.ones((6, 6), np.uint8)
     thresh = cv.erode(thresh, kernel)
@@ -69,7 +71,27 @@ def sharpen_image(image, debug=False):
     return thresh
 
 
-def preprocess_image(image, parameters: Parameters, debug=False):
+def sharpen_digit(image, debug=False):
+    grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    image_median_blurred = cv.medianBlur(grayed_image, 5)
+    image_gaussian_blurred = cv.GaussianBlur(grayed_image, (0, 0), 9)
+    image_sharpened = cv.addWeighted(image_median_blurred, 1.2, image_gaussian_blurred, -0.8, 0)
+    _, thresh = cv.threshold(image_sharpened, 20, 255, cv.THRESH_BINARY)
+
+    kernel = np.ones((6, 6), np.uint8)
+    thresh = cv.erode(thresh, kernel)
+
+    if debug:
+        show_image("default", grayed_image)
+        show_image("median", image_median_blurred)
+        show_image("gaussian", image_gaussian_blurred)
+        show_image("sharpened", image_sharpened)
+        show_image("thresh", thresh)
+
+    return thresh
+
+
+def preprocess_image(image, parameters: Parameters, bigger=False, debug=False):
     grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     thresh = sharpen_image(image, debug)
 
@@ -107,7 +129,12 @@ def preprocess_image(image, parameters: Parameters, debug=False):
 
     corners = np.float32([top_left, top_right, bottom_right, bottom_left])
     cropped_image = crop_resize_image(image.copy(), corners)
-    resized_image = cv.resize(cropped_image, (parameters.crop_width, parameters.crop_height))
+    if bigger:
+        size = (parameters.crop_width + parameters.crop_width // 5, parameters.crop_height + parameters.crop_height // 5)
+    else:
+        size = (parameters.crop_width, parameters.crop_height)
+
+    resized_image = cv.resize(cropped_image, size)
 
     if debug:
         image_copy = cv.cvtColor(grayed_image.copy(), cv.COLOR_GRAY2BGR)
@@ -120,6 +147,60 @@ def preprocess_image(image, parameters: Parameters, debug=False):
         show_image("cropped image", resized_image)
 
     return resized_image
+
+def border_gray_image(image, percentage, color):
+    height, width = image.shape
+    for i in range(width * percentage // 100):
+        for j in range(height):
+            image[i][j] = color
+            image[width-i-1][j] = color
+    for i in range(height * percentage // 100):
+        for j in range(width):
+            image[j][i] = color
+            image[j][height-i-1] = color
+
+    return image
+
+
+def process_zones(image, horizontal_lines, vertical_lines, percentage, debug=False):
+    grayed_image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    grayed_image = border_gray_image(grayed_image, 1, 50)
+    # first preprocessing
+    image_median_blurred = cv.medianBlur(grayed_image, 15)
+    image_gaussian_blurred = cv.GaussianBlur(grayed_image, (0, 0), 9)
+    image_sharpened = cv.addWeighted(image_median_blurred, 2.0, image_gaussian_blurred, -0.3, 0)
+    re_median_image = cv.medianBlur(image_sharpened, 11)
+    # thresh = cv.adaptiveThreshold(re_median_image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY + cv.THRESH_OTSU, 199, 70)
+    _, thresh = cv.threshold(re_median_image, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+
+    kernel = np.ones((5, 5), np.uint8)
+    thresh = cv.erode(thresh, kernel)
+
+    for i in range(len(horizontal_lines) - 1):
+        for j in range(len(vertical_lines) - 1):
+            y_min = vertical_lines[j][0][0]
+            y_max = vertical_lines[j + 1][0][0]
+            x_min = horizontal_lines[i][0][0]
+            x_max = horizontal_lines[i + 1][0][0]
+            height = abs(y_max - y_min)
+            width = abs(x_max - x_min)
+            difference_height = height * percentage // 100
+            difference_width = width * percentage // 100
+            y_min += difference_height
+            y_max -= difference_height
+            x_min += difference_width
+            x_max -= difference_width
+            thresh[x_min: x_max, y_min: y_max] = 255
+
+    show_image("thresh", thresh)
+    if debug:
+        #image_sharpened = cv.addWeighted(thresh, 2.0, image_gaussian_blurred, -1.0, 0)
+        show_image("median", image_median_blurred)
+        show_image("gaussian", image_gaussian_blurred)
+        show_image("sharpened", image_sharpened)
+        show_image("re-median", re_median_image)
+        show_image("thresh", thresh)
+    return thresh
 
 
 def get_lines_columns(width, height):
@@ -155,7 +236,7 @@ def crop_resize_image(image, corners):
     return warped_image
 
 
-def get_patches(cropped_image, vertical_lines, horizontal_lines, debug=False):
+def get_patches(cropped_image, vertical_lines, horizontal_lines, percentage, debug=False):
     patches = []
     for i in range(len(horizontal_lines) - 1):
         patches.append([])
@@ -166,8 +247,8 @@ def get_patches(cropped_image, vertical_lines, horizontal_lines, debug=False):
             x_max = horizontal_lines[i + 1][0][0]
             height = abs(y_max - y_min)
             width = abs(x_max - x_min)
-            difference_height = height // 10
-            difference_width = width // 10
+            difference_height = height * percentage // 100
+            difference_width = width * percentage // 100
             y_min += difference_height
             y_max -= difference_height
             x_min += difference_width
@@ -180,13 +261,13 @@ def get_patches(cropped_image, vertical_lines, horizontal_lines, debug=False):
 
 
 def decide_digit_existence(patch, debug=False):
-    thresh = sharpen_image(patch)
+    thresh = sharpen_digit(patch)
     mean_pixels = np.mean(thresh)
     if debug:
         show_image("inital", patch)
         show_image("digit image", thresh)
         print(np.mean(thresh))
-    if mean_pixels > 250:
+    if mean_pixels > 230:
         return False
     else:
         return True

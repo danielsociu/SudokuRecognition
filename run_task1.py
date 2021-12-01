@@ -16,10 +16,10 @@ for items in data:
 for items in data:
     vertical_lines, horizontal_lines = get_lines_columns(params.crop_width, params.crop_height)
     answer = ""
-    patches = get_patches(items["processed_image"], vertical_lines, horizontal_lines, debug=False)
+    patches = get_patches(items["processed_image"], vertical_lines, horizontal_lines, params.percentage, debug=False)
     for line in range(len(patches)):
         for patch in patches[line]:
-            exists = decide_digit_existence(patch)
+            exists = decide_digit_existence(patch, debug=False)
             answer += "x" if exists else "o"
         answer += '\n' if (line < len(patches) - 1) else ""
     items["patches"] = patches
