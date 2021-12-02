@@ -1,5 +1,7 @@
 from parameters import *
+import copy
 from utils import *
+import cv2 as cv
 
 params = Parameters("./antrenare/jigsaw")
 
@@ -16,9 +18,10 @@ for items in data:
 for items in data:
     vertical_lines, horizontal_lines = get_lines_columns(params.crop_width, params.crop_height)
     answer = ""
-    items["zone_image"] = zones_image(items["processed_image"], horizontal_lines, vertical_lines, params.percentage)
-    items["zone_image"] = cv.resize(items["zone_image"], (0, 0), fx=1/params.lee_speed, fy=1/params.lee_speed)
-    _, items["zone_image"] = cv.threshold(items["zone_image"], 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+    items["zone_image"] = zones_image(items["processed_image"], horizontal_lines, vertical_lines, params.percentage, debug=False)
+    items["zone_image"] = cv.resize(items["zone_image"], (0, 0), fx=1/params.lee_speed, fy=1/params.lee_speed, interpolation=cv.INTER_LINEAR)
+    items["zone_image"] = cv.GaussianBlur(items["zone_image"], (0, 0), 1)
+    _, items["zone_image"] = cv.threshold(items["zone_image"], 200, 255, cv.THRESH_BINARY)
     vertical_lines_lee, horizontal_lines_lee = get_lines_columns(*items["zone_image"].shape)
     items["zone_matrix"] = get_zones(items["zone_image"], vertical_lines_lee, horizontal_lines_lee, params.percentage)
     patches = get_patches(items["processed_image"], vertical_lines, horizontal_lines, params.percentage, debug=False)
@@ -34,10 +37,10 @@ for items in data:
     print("********************")
     print("Example " + items["number"] + ": ", end="")
     print(items["answer"] == items["true_answer"])
-    print(items["answer"])
-    print("----------------")
-    print(items["true_answer"])
-    print("********************")
+    # print(items["answer"])
+    # print("----------------")
+    # print(items["true_answer"])
+    # print("********************")
 
 # write_answers(data, params.answer_path, params.answer_type, params.predicted_answer_name)
 

@@ -5,7 +5,7 @@ import os
 
 
 def show_image(title, image):
-    resized_image = cv.resize(image.copy(), (1000, 1000))
+    resized_image = cv.resize(image.copy(), (1000, 1000), interpolation=cv.INTER_NEAREST)
     cv.imshow(title, resized_image)
     cv.waitKey(0)
     cv.destroyAllWindows()
@@ -170,28 +170,29 @@ def zones_image(image, horizontal_lines, vertical_lines, percentage, debug=False
     image_gaussian_blurred = cv.GaussianBlur(grayed_image, (0, 0), 9)
     image_sharpened = cv.addWeighted(image_median_blurred, 2.0, image_gaussian_blurred, -0.3, 0)
     re_median_image = cv.medianBlur(image_sharpened, 11)
-    # thresh = cv.adaptiveThreshold(re_median_image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY + cv.THRESH_OTSU, 199, 70)
-    _, thresh = cv.threshold(re_median_image, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+    thresh = cv.adaptiveThreshold(re_median_image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 99, 20)
+    # _, thresh = cv.threshold(re_median_image, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
 
     kernel = np.ones((5, 5), np.uint8)
     thresh = cv.erode(thresh, kernel)
 
-    # for i in range(len(horizontal_lines) - 1):
-    #     for j in range(len(vertical_lines) - 1):
-    #         y_min = vertical_lines[j][0][0]
-    #         y_max = vertical_lines[j + 1][0][0]
-    #         x_min = horizontal_lines[i][0][0]
-    #         x_max = horizontal_lines[i + 1][0][0]
-    #         height = abs(y_max - y_min)
-    #         width = abs(x_max - x_min)
-    #         difference_height = height * percentage // 100
-    #         difference_width = width * percentage // 100
-    #         y_min += difference_height
-    #         y_max -= difference_height
-    #         x_min += difference_width
-    #         x_max -= difference_width
-    #         thresh[x_min: x_max, y_min: y_max] = 255
+    for i in range(len(horizontal_lines) - 1):
+        for j in range(len(vertical_lines) - 1):
+            y_min = vertical_lines[j][0][0]
+            y_max = vertical_lines[j + 1][0][0]
+            x_min = horizontal_lines[i][0][0]
+            x_max = horizontal_lines[i + 1][0][0]
+            height = abs(y_max - y_min)
+            width = abs(x_max - x_min)
+            difference_height = height * percentage // 100
+            difference_width = width * percentage // 100
+            y_min += difference_height
+            y_max -= difference_height
+            x_min += difference_width
+            x_max -= difference_width
+            thresh[x_min: x_max, y_min: y_max] = 255
 
+    thresh = border_gray_image(thresh, 1, 0)
     if debug:
         #image_sharpened = cv.addWeighted(thresh, 2.0, image_gaussian_blurred, -1.0, 0)
         show_image("median", image_median_blurred)
