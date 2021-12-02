@@ -18,6 +18,7 @@ for items in data:
 for items in data:
     vertical_lines, horizontal_lines = get_lines_columns(params.crop_width, params.crop_height)
     answer = ""
+    # computation too big for 1000x1000 maps, so we resized them to 100x100
     items["zone_image"] = zones_image(items["processed_image"], horizontal_lines, vertical_lines, params.percentage, debug=False)
     items["zone_image"] = cv.resize(items["zone_image"], (0, 0), fx=1/params.lee_speed, fy=1/params.lee_speed, interpolation=cv.INTER_LINEAR)
     items["zone_image"] = cv.GaussianBlur(items["zone_image"], (0, 0), 1)
@@ -27,6 +28,13 @@ for items in data:
     patches = get_patches(items["processed_image"], vertical_lines, horizontal_lines, params.percentage, debug=False)
     for line in range(len(patches)):
         for column, patch in enumerate(patches[line]):
+            # print(patch.shape)
+            # patch = cv.cvtColor(patch, cv.COLOR_BGR2GRAY)
+            # show_image("",patch)
+            # _, patch = cv.threshold(patch, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+            # print(patch.shape)
+            # show_image("",patch)
+            # continue
             zone = decide_zone(items["zone_matrix"], line, column, vertical_lines_lee, horizontal_lines_lee, params.percentage)
             exists = decide_digit_existence(patch, debug=False)
             answer += str(zone)
@@ -42,7 +50,7 @@ for items in data:
     # print(items["true_answer"])
     # print("********************")
 
-# write_answers(data, params.answer_path, params.answer_type, params.predicted_answer_name)
+write_answers(data, params.jigsaw_answer_path, params.answer_type, params.predicted_answer_name)
 
 
 

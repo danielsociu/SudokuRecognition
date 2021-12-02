@@ -15,6 +15,7 @@ class Parameters:
         self.answer_name = "_gt"
         self.bonus_answer_name = "_bonus_gt"
         self.answer_path = "predictions/clasic"
+        self.jigsaw_answer_path = "predictions/jigsaw"
         self.predicted_answer_name = "_predicted"
         self.predicted_bonus_answer_name = "_bonus_predicted"
         self.answer_type = 'txt'
