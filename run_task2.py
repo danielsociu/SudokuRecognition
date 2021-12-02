@@ -1,6 +1,4 @@
-from parameters import *
-import copy
-from utils import *
+from helpers.utils import *
 import cv2 as cv
 
 params = Parameters("./antrenare/jigsaw")

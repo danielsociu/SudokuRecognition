@@ -1,5 +1,4 @@
-from parameters import *
-from utils import *
+from helpers.utils import *
 
 params = Parameters("./antrenare/clasic")
 

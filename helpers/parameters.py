@@ -14,8 +14,8 @@ class Parameters:
         self.crop_height = 1000
         self.answer_name = "_gt"
         self.bonus_answer_name = "_bonus_gt"
-        self.answer_path = "predictions/clasic"
-        self.jigsaw_answer_path = "predictions/jigsaw"
+        self.answer_path = "evaluare/fisiere_solutie/Sociu_Daniel_342/clasic/"
+        self.jigsaw_answer_path = "evaluare/fisiere_solutie/Sociu_Daniel_342/jigsaw/"
         self.predicted_answer_name = "_predicted"
         self.predicted_bonus_answer_name = "_bonus_predicted"
         self.answer_type = 'txt'
