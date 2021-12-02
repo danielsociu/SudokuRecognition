@@ -8,6 +8,7 @@ class Parameters:
     def __init__(self,  train_path):
         self.train_path = train_path
         self.image_type = 'jpg'
+        self.model_path = 'digit_CNN/digit_cnn.h5'
         self.crop_width = 1000
         self.lee_speed = 10
         self.percentage = 20

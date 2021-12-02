@@ -3,6 +3,8 @@ import cv2 as cv
 
 params = Parameters("./antrenare/jigsaw")
 
+model = keras.models.load_model(params.model_path)
+
 # Getting the data
 data = get_data(params.train_path, params.image_type, params.answer_type, params.answer_name, params.bonus_answer_name, params.answers_included)
 data = sorted(data, key=lambda item: item["number"].lower())
@@ -17,6 +19,7 @@ for items in data:
 for items in data:
     vertical_lines, horizontal_lines = get_lines_columns(params.crop_width, params.crop_height)
     answer = ""
+    answer_bonus = ""
 
     # computation too big for 1000x1000 maps, so we resized them to 100x100 and made some sharpening and thresholds
     # so we use 100x100 maps for zonal decision
@@ -35,14 +38,24 @@ for items in data:
             zone = decide_zone(items["zone_matrix"], line, column, vertical_lines_lee, horizontal_lines_lee, params.percentage)
             exists = decide_digit_existence(patch, debug=False)
             answer += str(zone)
+            answer_bonus += str(zone)
+            if exists:
+                digit = guess_digit(model, patch, zoom=10, debug=False)
+                answer_bonus += str(digit)
+            else:
+                answer_bonus += "o"
             answer += "x" if exists else "o"
         answer += '\n' if (line < len(patches) - 1) else ""
+        answer_bonus += '\n' if (line < len(patches) - 1) else ""
 
     items["patches"] = patches
     items["answer"] = answer
-    print("********************")
+    items["answer_bonus"] = answer_bonus
     print("Example " + items["number"] + ": ")
     print(items["answer"])
+    print("----------------")
+    print(items["answer_bonus"])
+    print("********************")
     # print(items["answer"] == items["true_answer"])
     # print(items["answer"])
     # print("----------------")
@@ -51,6 +64,7 @@ for items in data:
 
 # Writes the answers to files
 write_answers(data, params.jigsaw_answer_path, params.answer_type, params.predicted_answer_name)
+write_answers(data, params.jigsaw_answer_path, params.answer_type, params.predicted_bonus_answer_name, True)
 
 
 

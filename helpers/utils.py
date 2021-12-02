@@ -1,4 +1,8 @@
+import numpy as np
+
 from helpers.parameters import *
+import cv2 as cv
+from tensorflow import keras
 import os
 
 
@@ -42,7 +46,7 @@ def get_data(path, image_type, answer_type, answer_name, bonus_answer_name, answ
     return data
 
 
-def write_answers(data, answers_path, answer_type, answer_name):
+def write_answers(data, answers_path, answer_type, answer_name, bonus=False):
     """
     Writes the answers to the files
     """
@@ -53,7 +57,10 @@ def write_answers(data, answers_path, answer_type, answer_name):
         file_name = items["number"] + answer_name + '.' + answer_type
         file_path = os.path.join(final_path, file_name)
         with open(file_path, 'w') as f:
-            f.write(items["answer"])
+            if bonus:
+                f.write(items["answer_bonus"])
+            else:
+                f.write(items["answer"])
 
 
 def get_text_file_contents(path):
@@ -154,7 +161,7 @@ def preprocess_image(image, parameters: Parameters, bigger=False, debug=False):
     cropped_image = crop_resize_image(image.copy(), corners)
     if bigger:
         size = (
-        parameters.crop_width + parameters.crop_width // 5, parameters.crop_height + parameters.crop_height // 5)
+            parameters.crop_width + parameters.crop_width // 5, parameters.crop_height + parameters.crop_height // 5)
     else:
         size = (parameters.crop_width, parameters.crop_height)
 
@@ -402,3 +409,32 @@ def decide_digit_existence(patch, debug=False):
         return False
     else:
         return True
+
+
+def guess_digit(model, img, zoom=0, debug=False):
+    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    img = cv.resize(img, (64, 64), interpolation=cv.INTER_NEAREST)
+    if zoom:
+        diff = 64 * zoom // 100
+        img = cv.resize(img, (64 + diff, 64 + diff), interpolation=cv.INTER_NEAREST)
+        img = img[diff // 2 : 64 + diff // 2, diff // 2 : 64 + diff // 2]
+    blurred_img = cv.medianBlur(img, 1)
+    gaussian_img = cv.GaussianBlur(img, (0, 0), 1)
+    image_sharpened = cv.addWeighted(blurred_img, 1.9, gaussian_img, -0.8, 0)
+    if debug:
+        cv.imshow("", blurred_img)
+        cv.waitKey(0)
+        cv.imshow("", gaussian_img)
+        cv.waitKey(0)
+        cv.imshow("", image_sharpened)
+        cv.waitKey(0)
+    _, img = cv.threshold(image_sharpened, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+    kernel = np.ones((1, 1), np.uint8)
+    img = cv.erode(img, kernel)
+    # img = cv.adaptiveThreshold(image_sharpened, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 13, 20)
+    prediction = model.predict(np.array([img]))
+    if debug:
+        print(np.argmax(prediction) + 1)
+        cv.imshow("", img)
+        cv.waitKey(0)
+    return np.argmax(prediction) + 1
